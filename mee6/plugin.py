@@ -51,7 +51,7 @@ class Plugin(Logger):
         guilds = filter(lambda g: self.db.sismember('plugins:'+g, self.name),
                         guilds)
 
-        return map(lambda id: self._make_guild(dict(id=id)), guilds)
+        return [self._make_guild({'id': id}) for id in guilds]
 
     def _make_guild(self, guild_payload):
         guild = Guild.from_payload(guild_payload)
