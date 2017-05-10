@@ -1,0 +1,4 @@
+REDIS_URL= Url to a redis backend
+RATELIMIT_REDIS_URL= Url to the ratelimit redis backend (if None, the ratelimit
+will live in RAM)
+TOKEN= Discord bot token (for API calls)
