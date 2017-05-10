@@ -5,6 +5,7 @@ from collections import defaultdict
 from itertools import groupby
 from mee6 import Plugin, PluginConfig, api
 from mee6.utils import chunk
+from mee6.discord_api.http import APIException
 
 MESSAGE_FORMAT = "`New post from /r/{subreddit}`\n\n"\
                  "**{title}** *by {author}*\n"\
@@ -25,11 +26,11 @@ class Reddit(Plugin):
     def announce(self, posts, guild):
         to_announce = []
         for post in posts:
-            if self.db.sismember('Reddit.{}:announced'.format(guild.id),
-                                 post['id']): continue
+            if guild.storage.sismember('announced', post['id']): continue
             to_announce.append(post)
 
         messages = []
+        posts_ids  = []
         for post in to_announce:
             message = MESSAGE_FORMAT.format(subreddit=post['subreddit'],
                                             title=post['title'],
@@ -40,22 +41,35 @@ class Reddit(Plugin):
 
             if len(messages) == 0:
                 messages.append(message)
+                posts_ids.append([post['id']])
             else:
                 if len(messages[-1] + message) > 2000:
                     messages.append(message)
+                    posts_ids.append([post['id']])
                 else:
                     messages[-1] += message
+                    posts_ids[-1].append(post['id'])
 
-        for message in messages:
-            message = api.send_message(283751583177637888, message)
-            self.log('>> ' + message.content)
+        display_channel_id = guild.storage.get('display_channel') or guild.id
+        for message, posts_ids in zip(messages, posts_ids):
+            try:
+                message = api.send_message(display_channel_id, message)
+            except APIException as e:
+                self.log('An exception occured sending message in'\
+                         '{} // {}'.format(guild.id, e.msg))
+                continue
+
+            guild.storage.sadd('announced', *posts_ids)
+            self.log('Sent {} posts to {}\'s channel #{}'.format(len(posts_ids),
+                                                                       guild,
+                                                                       display_channel_id))
 
     def loop(self):
-        subreddits = self.time_log('Getting subreddits list',
+        subreddits = self.time_log('Fetching subreddits list',
                                    self.db.smembers,
                                    'Reddit.#:subs')
 
-        guilds = self.time_log('Getting guilds', self.get_guilds)
+        guilds = self.time_log('Fetching guilds', self.get_guilds)
 
         subreddits_map = defaultdict(list)
         for guild in guilds:
@@ -64,14 +78,15 @@ class Reddit(Plugin):
 
         subreddits_posts = {}
         for subs in chunk(subreddits, 100):
-            posts = self.time_log('Getting {} posts'.format(subs),
+            posts = self.time_log('Getting {} posts'.format('+'.join(subs)),
                                   self.get_posts, subs)
             subreddits_posts.update(posts)
 
         for subreddit, guilds in subreddits_map.items():
             posts = subreddits_posts.get(subreddit, ())
 
-            for guild in guilds: self.announce(posts, guild)
+            for guild in guilds:
+                gevent.spawn(self.announce, posts, guild)
 
             gevent.sleep(3)
 
