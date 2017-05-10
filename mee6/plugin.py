@@ -1,5 +1,6 @@
 import redis
 import os
+import gevent
 
 from mee6.types import Guild
 from mee6.utils import Logger
@@ -11,8 +12,21 @@ class GuildStorage:
         self.db = db
         self.pre = '.'.join((plugin.name, guild.id)) + ':'
 
+    def get(self, key):
+        return self.db.get(self.pre + key)
+
+    def set(self, key, value):
+        return self.db.set(self.pre + key, value)
+
+    def sismember(self, key, value):
+        return self.db.sismember(self.pre + key, value)
+
     def smembers(self, key):
         return self.db.smembers(self.pre + key)
+
+    def sadd(self, key, *values):
+        return self.db.sadd(self.pre + key, *values)
+
 
 class Plugin(Logger):
     id = "plugin"
@@ -63,3 +77,8 @@ class Plugin(Logger):
             gevent.spawn(handler, guild, data)
         else:
             gevent.spawn(handler, guild)
+
+    def run(self, sleep_time=1):
+        while True:
+            self.loop()
+            gevent.sleep(sleep_time)
