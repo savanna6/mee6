@@ -70,6 +70,7 @@ class Reddit(Plugin):
                                    'Reddit.#:subs')
 
         guilds = self.time_log('Fetching guilds', self.get_guilds)
+        self.log('Found {} guilds'.format(len(guilds)))
 
         subreddits_map = defaultdict(list)
         for guild in guilds:
