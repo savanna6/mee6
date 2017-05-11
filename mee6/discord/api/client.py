@@ -1,6 +1,6 @@
 import os
 
-from mee6.discord_api.http import HTTPClient
+from mee6.discord.api.http import HTTPClient
 from mee6.types import Channel, Guild, Message
 
 class APIClient:

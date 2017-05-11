@@ -2,7 +2,7 @@ import requests
 import logging
 
 from mee6.utils import Logger
-from mee6.discord_api.ratelimit import LocalRatelimit, RedisRatelimit
+from mee6.discord.api.ratelimit import LocalRatelimit, RedisRatelimit
 
 logging.getLogger('requests').setLevel(logging.WARNING)
 

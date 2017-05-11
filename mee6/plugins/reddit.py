@@ -3,9 +3,10 @@ import requests
 
 from collections import defaultdict
 from itertools import groupby
-from mee6 import Plugin, PluginConfig, api
+from mee6 import Plugin, PluginConfig
 from mee6.utils import chunk
-from mee6.discord_api.http import APIException
+from mee6.discord.api.http import APIException
+from mee6.discord import send_message
 
 MESSAGE_FORMAT = "`New post from /r/{subreddit}`\n\n"\
                  "**{title}** *by {author}*\n"\
@@ -53,7 +54,7 @@ class Reddit(Plugin):
         display_channel_id = guild.storage.get('display_channel') or guild.id
         for message, posts_ids in zip(messages, posts_ids):
             try:
-                message = api.send_message(display_channel_id, message)
+                message = send_message(display_channel_id, message)
             except APIException as e:
                 self.log('An exception occured sending message in'\
                          '{} // {}'.format(guild.id, e.msg))
