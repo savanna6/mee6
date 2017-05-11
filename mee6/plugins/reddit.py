@@ -82,15 +82,11 @@ class Reddit(Plugin):
         for subs in chunk(subreddits, 100):
             posts = self.time_log('Getting {} posts'.format('+'.join(subs)),
                                   self.get_posts, subs)
-            subreddits_posts.update(posts)
-
-        for subreddit, guilds in subreddits_map.items():
-            posts = subreddits_posts.get(subreddit, ())
-
-            for guild in guilds:
-                gevent.spawn(self.announce, posts, guild)
-
-            gevent.sleep(3)
+            gevent.sleep(1)
+            for subreddit, subreddit_posts in posts.items():
+                guilds = subreddits_map.get(subreddit)
+                for guild in guilds:
+                    gevent.spawn(self.announce, subreddit_posts, guild)
 
     def get_posts(self, subreddits):
         url ='https://www.reddit.com/r/{subs}/new.json?limit=100'.format(subs='+'.join(subreddits))
