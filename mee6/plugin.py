@@ -47,7 +47,7 @@ class Plugin(Logger):
     def get_guild_storage(self, guild): return GuildStorage(self.db, self, guild)
 
     def get_guilds(self):
-        guilds = (id for id in self.db.smembers('guilds'))
+        guilds = (id for id in self.db.smembers('servers'))
         guilds = filter(lambda g: self.db.sismember('plugins:'+g, self.name),
                         guilds)
 
