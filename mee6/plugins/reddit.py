@@ -57,7 +57,7 @@ class Reddit(Plugin):
                 message = send_message(display_channel_id, message)
             except APIException as e:
                 self.log('An exception occured sending message in'\
-                         '{} // {}'.format(guild.id, e.msg))
+                         '{} // {}'.format(guild.id, e.payload))
                 continue
 
             guild.storage.sadd('announced', *posts_ids)

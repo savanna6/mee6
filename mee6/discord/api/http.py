@@ -10,6 +10,7 @@ class APIException(Exception):
     def __init__(self, r):
         msg = 'Request failed status_code={} payload={}'.format(r.status_code,
                                                                 r.text)
+        self.payload = r.text
         super(APIException, self).__init__(msg)
 
 
