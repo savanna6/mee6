@@ -1,3 +1,5 @@
 FROM python:3
-ADD . /
-RUN pip3 install .
+RUN mkdir mee6
+ADD . /mee6/
+RUN cd /mee6 && pip3 install .
+RUN rm -rf /mee6
