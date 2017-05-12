@@ -25,4 +25,4 @@ class Guild:
     @property
     def storage(self): return self.plugin.get_guild_storage(self)
 
-    def __repr__(self): return "<Guild {} {}>".format(self.id, self.name)
+    def __repr__(self): return "<Guild id={} name={}>".format(self.id, self.name)
