@@ -50,7 +50,7 @@ class Reddit(Plugin):
     def announce(self, posts, guild):
         to_announce = []
         for post in posts:
-            #if guild.storage.sismember('announced', post['id']): continue
+            if guild.storage.sismember('announced', post['id']): continue
             to_announce.append(post)
 
         messages = []
