@@ -16,14 +16,15 @@ class Ratelimit(Logger):
         raise NotImplemented
 
     def check(self, route):
-        reset = self.get_route(route)
+        reset = self.get_route(route) or self.get_route('global')
         if not reset: return
 
         sleep_time = math.floor(max(0, reset - time.time()))
         self.log('Bucket {} full, waiting {}s'.format(route, sleep_time))
-        gevent.sleep(sleep_time)
+        gevent.sleep(sleep_time + 0.1)
 
         self.del_route(route)
+        self.del_route('global')
 
         return
 
@@ -32,6 +33,18 @@ class Ratelimit(Logger):
         if remaining == '0':
             self.set_route(route, int(r.headers.get('X-RateLimit-Reset', 0)))
         return
+
+    def handle_429(self, route, r):
+        payload = r.json()
+        retry_after = math.ceil(payload['retry_after'] / 1000.)
+        if payload['global']:
+            self.set_route('global', math.ceil(time.time() + retry_after))
+            self.log('Hitting global RL, waiting {}s'.format(retry_after))
+        else:
+            self.set_route(route, math.ceil(time.time() + retry_after))
+            self.log('Received 429: Bucket {} full, waiting {}s'.format(route,
+                                                                       retry_after))
+        return retry_after
 
 class LocalRatelimit(Ratelimit):
     def __init__(self):
@@ -54,7 +67,7 @@ class RedisRatelimit(Ratelimit):
         reset = self.r.get('Ratelimit.{}'.format(route))
 
         if reset is not None:
-            return int(reset)
+            return math.ceil(float(reset))
         else:
             return None
 
