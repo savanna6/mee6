@@ -1,5 +1,7 @@
 import requests
 import logging
+import gevent
+import os
 
 from mee6.utils import Logger
 from mee6.discord.api.ratelimit import LocalRatelimit, RedisRatelimit
@@ -17,12 +19,13 @@ class APIException(Exception):
 class HTTPClient(Logger):
 
     BASE_URL = 'https://discordapp.com/api/v6'
+    RATELIMIT_REDIS_URL = os.getenv('RATELIMIT_REDIS_URL')
 
-    def __init__(self, token, redis_url=None):
+    def __init__(self, token):
         self.token = token
 
-        if redis_url:
-            self.ratelimit = RedisRatelimit('redis://localhost')
+        if self.RATELIMIT_REDIS_URL:
+            self.ratelimit = RedisRatelimit(self.RATELIMIT_REDIS_URL)
         else:
             self.ratelimit = LocalRatelimit()
 
@@ -48,7 +51,10 @@ class HTTPClient(Logger):
             raise APIException(r)
 
         if r.status_code == 429:
-            self.log('We are being ratelimited... This shouldn\'t happen...')
+            gevent.sleep(self.ratelimit.handle_429(route, r))
+            return self.__call__(method, route, **kwargs)
+        else:
+            raise APIException(r)
 
     def get(self, route, **kwargs): return self('GET', route, **kwargs)
 
