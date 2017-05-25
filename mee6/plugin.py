@@ -1,16 +1,16 @@
 import redis
 import os
 import gevent
+import json
 
 from mee6.types import Guild
-from mee6.utils import Logger
-
-class PluginConfig: pass
+from mee6.utils import Logger, get
 
 class GuildStorage:
     def __init__(self, db, plugin, guild):
         self.db = db
-        self.pre = '.'.join((plugin.name, guild.id)) + ':'
+        self.pre = 'plugin.{}.guild.{}.storage:'.format(plugin.id,
+                                                        guild.id)
 
     def get(self, key):
         return self.db.get(self.pre + key)
@@ -29,9 +29,24 @@ class GuildStorage:
 
 
 class Plugin(Logger):
+    """
+
+    Utility functions:
+        - get_guilds () -> (list of guilds)
+            Gets all the guilds (partial guilds) that have the plugin enabled.
+        - check_guild (guild_id | guild) -> (bool)
+            Checks if a guild has the plugin enabled
+        - get_config (guild_id | guild) -> (dict config)
+            Gets the config of a guild
+        - get_default_config (guild_id | guild) -> (dict config)
+            Gets the default config
+        - patch_config (guild_id | guild, new_config) -> (dict config)
+            Pathes the config of a guild
+    """
     id = "plugin"
     name = "Plugin"
     description = ""
+
     db = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
 
     def on_message_create(self, guild, message): pass
@@ -53,11 +68,53 @@ class Plugin(Logger):
 
         return [self._make_guild({'id': id}) for id in guilds]
 
+    def check_guild(self, guild):
+        guild_id = get(guild, 'id')
+
+        # Legacy
+        plugins = self.db.smembers('plugins:{}'.format(guild_id))
+        return self.id in map(lambda s: s.lower(), plugins)
+        # /Legacy
+
+        #return self.db.sismember('plugins:{}'.format(guild_id), self.id)
+
     def _make_guild(self, guild_payload):
         guild = Guild.from_payload(guild_payload)
         guild.db = self.db
         guild.plugin = self
         return guild
+
+    def get_config(self, guild_id):
+        key = 'plugin.{}.config.{}'.format(self.id, guild_id)
+        config = self.db.get(key)
+        config = json.loads(config)
+
+        return config
+
+    def get_default_config(self, guild_id):
+        default_config = {}
+        return default_config
+
+    def patch_config(self, guild_id, old_config, new_config):
+        # pre-hook
+        self.before_config_patch(guild_id, old_config, new_config)
+
+        config = {k: new_config.get(k, old_config[k]) for k in old_config.keys()}
+
+        # validation
+        config = self.validate_config(self, guild_id, config)
+
+        self.db.set('plugin.{}.config.{}'.format(self.id, guild_id),
+                    json.dumps(config))
+
+        # post-hook
+        self.after_config_patch(guild_id, config)
+
+        return config
+
+    def before_config_patch(self, guild_id, old_config, new_config): pass
+    def after_config_patch(self, guild_id, config): pass
+    def validate_config(self, guild_id, config): return config
 
     def dispatch(self, event):
         event_type = event['t'].lower()
