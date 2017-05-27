@@ -1,20 +1,22 @@
 import gevent
 import gevent.queue
 import requests
+import os
+import re
 
 from collections import defaultdict
 from itertools import groupby
-from mee6 import Plugin, PluginConfig
-from mee6.utils import chunk
+from mee6 import Plugin
+from mee6.utils import chunk, int2base
 from mee6.discord.api.http import APIException
 from mee6.discord import send_message
+from mee6.types import Guild
+from time import time
 
 MESSAGE_FORMAT = "`New post from /r/{subreddit}`\n\n"\
                  "**{title}** *by {author}*\n"\
                  "**Link** {link}\n"\
                  "**Thread** {thread} \n\n"
-SENDER_PACE = 0.1
-SUBREDDITS_BATCH_SIZE = 50
 
 class Reddit(Plugin):
 
@@ -25,103 +27,155 @@ class Reddit(Plugin):
     sender_queue = gevent.queue.Queue()
     sender_worker_instance = None
 
-    def sender_worker(self, wait_time):
-        while True:
-            channel_id, message, guild, num = self.sender_queue.get()
-            try:
-                send_message(channel_id, message)
-                self.log('Sent {} posts to {}\'s channel #{}'.format(num,
-                                                                     guild,
-                                                                     channel_id))
-            except APIException as e:
-                self.log('An exception occured sending message in'\
-                         '{} // {}'.format(guild.id, e.payload))
-            except Exception as e:
-                self.log('An unknown expection occured sending message...'\
-                         '{}'.format(e))
-            finally:
-                gevent.sleep(wait_time)
+    last_post_id = None
 
-    def get_config(self, guild):
-        config = PluginConfig()
-        config.subreddits = guild.storage.smembers('subs')
+    access_token = None
+    access_token_expires_at = None
+    user_agent = 'linux:mee6:v0.0.1 (by /u/cookkkie)'
+
+    subreddit_rx = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_]{2,20}\Z")
+
+    def get_default_config(self, guild_id):
+        default_config = {'subreddits': [],
+                          'announcement_channel': guild_id}
+        return default_config
+
+    def before_config_patch(self, guild_id, old_config, new_config):
+        for subreddit in old_config['subreddits']:
+            key = 'plugin.{}.subreddit.{}.guilds'.format(self.id, subreddit)
+            self.db.srem(key, guild_id)
+
+    def after_config_patch(self, guild_id, config):
+        for subreddit in config['subreddits']:
+            key = 'plugin.{}.subreddit.{}.guilds'.format(self.id, subreddit)
+            self.db.sadd(key, guild_id)
+
+    def validate_config(self, guild_id, config):
+        valid_subreddits = []
+
+        for subreddit in config['subreddits']:
+            sub = subreddit.split('/')[-1].lower()
+            if self.subreddit_rx.match(sub): valid_subreddits.append(sub)
+
+        config['subreddits'] = valid_subreddits
+
         return config
 
-    def announce(self, posts, guild):
-        to_announce = []
-        for post in posts:
-            if guild.storage.sismember('announced', post['id']): continue
-            to_announce.append(post)
+    def get_access_token(self):
+        client_id = os.getenv('REDDIT_CLIENT_ID')
+        client_secret = os.getenv('REDDIT_CLIENT_SECRET')
+        url = 'https://www.reddit.com/api/v1/access_token'
 
+        from requests.auth import HTTPBasicAuth
+        auth = HTTPBasicAuth(client_id, client_secret)
+        headers = {'user-agent': self.user_agent}
+        data = {'grant_type': 'client_credentials'}
+        r = requests.post(url, auth=auth, headers=headers, data=data)
+        result = r.json()
+
+        access_token = result['access_token']
+        expires_at = time() + result['expires_in']
+        return (access_token, expires_at)
+
+    def refresh_access_token(self):
+        self.access_token, self.access_token_expires_at = self.get_access_token()
+
+    def make_request(self, *args, **kwargs):
+        # Check for access_token
+        if self.access_token is None or time() > self.access_token_expires_at:
+            self.refresh_access_token()
+
+        kwargs['headers'] = kwargs.get('headers', {})
+        kwargs['headers']['user-agent'] = self.user_agent
+        kwargs['headers']['Authorization'] = 'bearer ' + self.access_token
+
+        r = requests.get(*args, **kwargs)
+
+        # If Unauthorized, refresh the token
+        if r.status_code != 200:
+            self.refresh_access_token()
+            return self.make_request(*args, **kwargs)
+
+        return r
+
+    def get_new_posts(self, last_post_id):
+        last_post_id = int(last_post_id, base=36)
+        forward_ids = (last_post_id + 1 + i for i in range(0, 100))
+        forward_ids = map(lambda id: 't3_' + int2base(id, 36), forward_ids)
+
+        user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_0) "\
+                     "AppleWebKit/537.36 (KHTML, like Gecko)Chrome/57.0.2987.98"\
+                     "Safari/537.36"
+        url = "https://oauth.reddit.com/api/info"
+        params = {'id': ','.join(forward_ids),
+                  'raw_json': 1}
+        r = self.make_request(url, params=params)
+        result = r.json()
+        children = result['data']['children']
+
+        posts = map(lambda p: p['data'], children)
+
+        # Only get subreddit posts
+        posts = filter(lambda p: p.get('subreddit'), posts)
+
+        return list(posts)
+
+    def get_last_post_id(self):
+        url = 'https://oauth.reddit.com/r/all/new'
+        params = {'limit': 1, 'raw_json': 1}
+        r = self.make_request(url, params=params)
+        return r.json()['data']['children'][-1]['data']['id']
+
+    def loop(self):
+        if not self.last_post_id:
+            self.last_post_id = self.get_last_post_id()
+            self.log('Last subreddit post ID ' + self.last_post_id)
+
+        posts = self.get_new_posts(self.last_post_id)
+
+        self.log('Got {} new posts'.format(len(posts)))
+
+        if len(posts) > 0:
+            last_post = posts[-1]
+            self.last_post_id = last_post['id']
+
+        grouped_posts = groupby(posts, lambda p: p['subreddit'])
+        for subreddit, subreddit_posts in grouped_posts:
+            gevent.spawn(self.announce, subreddit, list(subreddit_posts))
+
+    def announce(self, subreddit, subreddit_posts):
+        subreddit = subreddit.lower()
+        key = 'plugin.{}.subreddit.{}.guilds'.format(self.id, subreddit)
+        guilds_ids = self.db.smembers(key)
+        for guild_id in guilds_ids:
+            if not self.check_guild(guild_id): continue
+
+            self.log('Announcing /r/{} posts to {}'.format(subreddit,
+                                                                guild_id))
+
+            guild = Guild(id=guild_id, plugin=self)
+            self.announce_posts(guild, subreddit_posts)
+
+    def announce_posts(self, guild, posts):
         messages = []
-        posts_ids  = []
-        for post in to_announce:
+        for post in posts:
             message = MESSAGE_FORMAT.format(subreddit=post['subreddit'],
                                             title=post['title'],
                                             author=post['author'],
                                             link=post['url'],
-                                            thread="https://www.reddit.com" +post["permalink"])
+                                            thread="https://www.reddit.com" + post["permalink"])
             message = message.replace('@everyone', '@ everyone')
 
             if len(messages) == 0:
                 messages.append(message)
-                posts_ids.append([post['id']])
             else:
                 if len(messages[-1] + message) > 2000:
                     messages.append(message)
-                    posts_ids.append([post['id']])
                 else:
                     messages[-1] += message
-                    posts_ids[-1].append(post['id'])
 
-        display_channel_id = guild.storage.get('display_channel') or guild.id
-        for message, posts_ids in zip(messages, posts_ids):
-            self.sender_queue.put((display_channel_id, message, guild,
-                                   len(posts_ids)))
-            guild.storage.sadd('announced', *posts_ids)
+        announcement_channel = guild.config.get('announcement_channel')
 
-    def loop(self):
-        if self.sender_worker_instance is None:
-            self.sender_worker_instance = gevent.spawn(self.sender_worker,
-                                                       SENDER_PACE)
-
-        subreddits = self.time_log('Fetching subreddits list',
-                                   self.db.smembers,
-                                   'Reddit.#:subs')
-
-        guilds = self.time_log('Fetching guilds', self.get_guilds)
-        self.log('Found {} guilds'.format(len(guilds)))
-
-        subreddits_map = defaultdict(list)
-        for guild in guilds:
-            for subreddit in guild.config.subreddits:
-                subreddits_map[subreddit].append(guild)
-
-        subreddits_posts = {}
-        for subs in chunk(subreddits, SUBREDDITS_BATCH_SIZE):
-            posts = self.time_log('Getting {} posts'.format('+'.join(subs)),
-                                  self.get_posts, subs)
-            gevent.sleep(1)
-            for subreddit, subreddit_posts in posts.items():
-                guilds = subreddits_map.get(subreddit, [])
-                for guild in guilds:
-                    gevent.spawn(self.announce, list(reversed(subreddit_posts)), guild)
-
-    def get_posts(self, subreddits):
-        url ='https://www.reddit.com/r/{subs}/new.json?limit=100'.format(subs='+'.join(subreddits))
-        user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_0) "\
-                     "AppleWebKit/537.36 (KHTML, like Gecko)Chrome/57.0.2987.98"\
-                     "Safari/537.36"
-        req = requests.get(url, headers={'user-agent': user_agent})
-
-        if req.status_code != 200:
-            return {}
-
-        data = req.json().get('data')
-        if not data:
-            return {}
-
-        posts = map(lambda c: c['data'], data['children'])
-
-        return {sub : list(posts) for sub, posts in groupby(posts, lambda p: p['subreddit'])}
+        for message in messages:
+            send_message(announcement_channel or guild.id, message)
 
