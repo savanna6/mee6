@@ -69,7 +69,7 @@ class Plugin(Logger):
         return [self._make_guild({'id': id}) for id in guilds]
 
     def check_guild(self, guild):
-        guild_id = get(guild, 'id')
+        guild_id = get(guild, 'id', guild)
 
         # Legacy
         plugins = self.db.smembers('plugins:{}'.format(guild_id))
@@ -84,25 +84,33 @@ class Plugin(Logger):
         guild.plugin = self
         return guild
 
-    def get_config(self, guild_id):
+    def get_config(self, guild):
+        guild_id = get(guild, 'id', guild)
+
         key = 'plugin.{}.config.{}'.format(self.id, guild_id)
         config = self.db.get(key)
-        config = json.loads(config)
 
-        return config
+        if config:
+            return json.loads(config)
+
+        return self.get_default_config(guild_id)
 
     def get_default_config(self, guild_id):
         default_config = {}
         return default_config
 
-    def patch_config(self, guild_id, old_config, new_config):
+    def patch_config(self, guild, new_config):
+        guild_id = get(guild, 'id', guild)
+
+        old_config = self.get_config(guild_id)
+
         # pre-hook
         self.before_config_patch(guild_id, old_config, new_config)
 
         config = {k: new_config.get(k, old_config[k]) for k in old_config.keys()}
 
         # validation
-        config = self.validate_config(self, guild_id, config)
+        config = self.validate_config(guild_id, config)
 
         self.db.set('plugin.{}.config.{}'.format(self.id, guild_id),
                     json.dumps(config))
