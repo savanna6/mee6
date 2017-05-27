@@ -70,7 +70,8 @@ class Reddit(Plugin):
         auth = HTTPBasicAuth(client_id, client_secret)
         headers = {'user-agent': self.user_agent}
         data = {'grant_type': 'client_credentials'}
-        r = requests.post(url, auth=auth, headers=headers, data=data)
+        r = requests.post(url, auth=auth, headers=headers, data=data,
+                          timeout=10)
         result = r.json()
 
         access_token = result['access_token']
@@ -88,6 +89,7 @@ class Reddit(Plugin):
         kwargs['headers'] = kwargs.get('headers', {})
         kwargs['headers']['user-agent'] = self.user_agent
         kwargs['headers']['Authorization'] = 'bearer ' + self.access_token
+        kwargs['timeout'] = 10
 
         r = requests.get(*args, **kwargs)
 
