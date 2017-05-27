@@ -154,7 +154,10 @@ class Reddit(Plugin):
                                                                 guild_id))
 
             guild = Guild(id=guild_id, plugin=self)
-            gevent.spawn(self.announce_posts, guild, subreddit_posts)
+            try:
+                self.announce_posts(guild, subreddit_posts)
+            except APIException as e:
+                self.log('Got Api exception {}'.format(e.status_code))
 
     def announce_posts(self, guild, posts):
         messages = []
