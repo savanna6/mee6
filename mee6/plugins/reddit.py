@@ -154,7 +154,7 @@ class Reddit(Plugin):
                                                                 guild_id))
 
             guild = Guild(id=guild_id, plugin=self)
-            self.announce_posts(guild, subreddit_posts)
+            gevent.spawn(self.announce_posts, guild, subreddit_posts)
 
     def announce_posts(self, guild, posts):
         messages = []
