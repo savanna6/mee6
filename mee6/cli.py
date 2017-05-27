@@ -1,8 +1,8 @@
-import click
-import mee6.plugins
-
 from gevent import monkey
 monkey.patch_all()
+
+import click
+import mee6.plugins
 
 @click.command('')
 @click.argument('plugin_name')
