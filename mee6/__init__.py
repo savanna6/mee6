@@ -1,1 +1,1 @@
-from mee6.plugin import Plugin, PluginConfig
+from mee6.plugin import Plugin
