@@ -79,6 +79,9 @@ class Plugin(Logger):
     def check_guild(self, guild):
         guild_id = get(guild, 'id', guild)
 
+        if not self.db.sismember('servers', guild_id):
+            return False
+
         # Legacy
         plugins = self.db.smembers('plugins:{}'.format(guild_id))
         return self.id in map(lambda s: s.lower(), plugins)
