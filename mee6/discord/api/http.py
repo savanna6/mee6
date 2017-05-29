@@ -5,15 +5,9 @@ import os
 
 from mee6.utils import Logger
 from mee6.discord.api.ratelimit import LocalRatelimit, RedisRatelimit
+from mee6.exceptions import APIException
 
 logging.getLogger('requests').setLevel(logging.WARNING)
-
-class APIException(Exception):
-    def __init__(self, r):
-        msg = 'Request failed status_code={} payload={}'.format(r.status_code,
-                                                                r.text)
-        self.payload = r.text
-        super(APIException, self).__init__(msg)
 
 
 class HTTPClient(Logger):
