@@ -68,6 +68,14 @@ class Plugin(Logger):
 
         return [self._make_guild({'id': id}) for id in guilds]
 
+    def enable(self, guild):
+        guild_id = get(guild, 'id', guild)
+        self.db.sadd('plugins:{}'.format(guild_id), self.name)
+
+    def disable(self, guild):
+        guild_id = get(guild, 'id', guild)
+        self.db.srem('plugins:{}'.format(guild_id), self.name)
+
     def check_guild(self, guild):
         guild_id = get(guild, 'id', guild)
 
