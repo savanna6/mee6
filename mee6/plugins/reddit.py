@@ -8,8 +8,8 @@ from collections import defaultdict
 from itertools import groupby
 from mee6 import Plugin
 from mee6.utils import chunk, int2base
-from mee6.discord.api.http import APIException
-from mee6.discord import send_message
+from mee6.exceptions import APIException
+from mee6.discord import send_message, send_webhook_message
 from mee6.types import Guild
 from time import time
 
@@ -181,6 +181,8 @@ class Reddit(Plugin):
 
         announcement_channel = guild.config.get('announcement_channel')
 
+        webhook_id = 'reddit_announcement:{}'.format(announcement_channel)
+        channel_id = announcement_channel or guild.id
         for message in messages:
-            send_message(announcement_channel or guild.id, message)
+            send_webhook_message(webhook_id, channel_id, message)
 
