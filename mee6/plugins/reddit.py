@@ -159,7 +159,13 @@ class Reddit(Plugin):
             try:
                 self.announce_posts(guild, subreddit_posts)
             except APIException as e:
-                self.log('Got Api exception {}'.format(e.status_code))
+                self.log('Got Api exception {} {}'.format(e.status_code, e.payload))
+
+                # Disabling the plugin in case of an error
+                # Unauthorized or channel not found
+                if e.status_code in (403, 404):
+                    self.log('Disabling plugin for {}'.format(guild.id))
+                    self.disable(guild)
 
     def announce_posts(self, guild, posts):
         messages = []
