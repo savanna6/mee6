@@ -105,9 +105,6 @@ class Reddit(Plugin):
         forward_ids = (last_post_id + 1 + i for i in range(0, 100))
         forward_ids = map(lambda id: 't3_' + int2base(id, 36), forward_ids)
 
-        user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_0) "\
-                     "AppleWebKit/537.36 (KHTML, like Gecko)Chrome/57.0.2987.98"\
-                     "Safari/537.36"
         url = "https://oauth.reddit.com/api/info"
         params = {'id': ','.join(forward_ids),
                   'raw_json': 1}
