@@ -73,9 +73,11 @@ class APIClient:
             else:
                 raise e
 
-    def send_message(self, channel_id, message_content):
+    def send_message(self, channel_id, message_content, embed=None):
         path = 'channels/{}/messages'.format(channel_id)
         body = {'content': message_content}
+        if embed:
+            body['embed'] = embed.get_dict()
 
         r = self.http.post(path, json=body)
 
