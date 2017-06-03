@@ -2,3 +2,4 @@ redis==2.10.5
 requests==2.10.0
 gevent==1.1.2
 click==6.6
+datadog==0.16.0
