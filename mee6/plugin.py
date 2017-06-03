@@ -154,7 +154,39 @@ class Plugin(Logger):
         else:
             gevent.spawn(handler, guild)
 
-    def run(self, sleep_time=1):
-        while True:
-            self.loop()
-            gevent.sleep(sleep_time)
+    @classmethod
+    def loop(cls, sleep_time=1):
+        def deco(f):
+            f.is_loop = 1
+            f.sleep_time = 1
+            return f
+        return deco
+
+    def get_loop_container(self, loop):
+        def loop_container():
+            while True:
+                try:
+                    loop()
+                except Exception as e:
+                    self.log('An error occured in loop {},' \
+                             'ignoring...'.format(loop))
+                    gevent.sleep(3)
+
+                gevent.sleep(loop.sleep_time)
+        return loop_container
+
+    def run(self):
+        loops = []
+        for name, method in self.__class__.__dict__.items():
+            if hasattr(method, 'is_loop'):
+                loops.append(name)
+
+        loops = [get(self, loop) for loop in loops]
+
+        active_loops = []
+
+        import copy
+        for loop in loops:
+            active_loops.append(gevent.spawn(self.get_loop_container(loop)))
+
+        gevent.joinall(active_loops)
