@@ -79,10 +79,10 @@ class Streamers(Plugin):
 
         embed = MessageEmbed()
         embed.color = 0x99cc00
-        embed.title = channel['media_status']
+        embed.title = stream['media_status']
         embed.url = channel['channel_link']
 
-        embed.author_name = channel['media_display_name']
+        embed.author_name = stream['media_display_name']
         embed.author_icon_url = 'https://edge.sf.hitbox.tv' + channel['user_logo']
         embed.author_url = channel['channel_link']
 
@@ -90,7 +90,7 @@ class Streamers(Plugin):
         embed.thumbnail_proxy_url = 'https://edge.sf.hitbox.tv' + channel['user_logo']
         embed.thumbnail_width, embed.thumbnail_height = 100, 100
 
-        embed.image_url = stream['media_thumbnail_large']
+        embed.image_url = 'https://edge.sf.hitbox.tv' + stream['media_thumbnail']
 
         embed.footer_text = 'Hitbox.tv'
 
