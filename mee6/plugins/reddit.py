@@ -125,6 +125,7 @@ class Reddit(Plugin):
         r = self.make_request(url, params=params)
         return r.json()['data']['children'][-1]['data']['id']
 
+    @Plugin.loop(sleep_time=1)
     def loop(self):
         if not self.last_post_id:
             self.last_post_id = self.get_last_post_id()
