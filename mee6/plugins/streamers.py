@@ -189,7 +189,9 @@ class Streamers(Plugin):
             send_message(guild.config['announcement_channel'], message, embed=embed)
             guild.storage.sadd('announced_twitch_streams', stream_id)
         except APIException as e:
-            self.log('[Twitch] An error occured {}'.format(e.payload))
+            self.log('[Twitch] An error occured {} {} {}'.format(e.status_code,
+                                                                 e.error_code,
+                                                                 e.payload))
             if e.status_code in (403, 404):
                 self.log('[Twitch] Disabling plugin for {}'.format(guild.id))
                 self.disable(guild)
