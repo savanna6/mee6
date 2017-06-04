@@ -67,7 +67,7 @@ class Streamers(Plugin):
                 self.announce_hitbox(guild, stream)
             except Exception as e:
                 self.log('[Hitbox] An Exception occured announcing stream {}, guild' \
-                         '{} {}'.format(streamer, guild.id, e))
+                         ' {} {}'.format(streamer, guild.id, e))
 
     def announce_hitbox(self, guild, stream):
         stream_id = stream['media_id']
@@ -94,11 +94,11 @@ class Streamers(Plugin):
 
         embed.footer_text = 'Hitbox.tv'
 
-        game = stream.get('category_name')
+        game = stream.get('category_name', "")
         if game:
             embed.add_field('Played Game', game, True)
 
-        embed.add_field('Viewers', stream['category_viewers'], True)
+        embed.add_field('Viewers', stream['category_viewers'] or 0, True)
 
         message = guild.config['announcement_message']
         message = message.replace('{streamer}', embed.author_name)
