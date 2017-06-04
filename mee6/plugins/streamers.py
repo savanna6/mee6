@@ -109,7 +109,9 @@ class Streamers(Plugin):
             send_message(guild.config['announcement_channel'], message, embed=embed)
             guild.storage.sadd('announced_hitbox_streams', stream_id)
         except APIException as e:
-            self.log('[Hitbox] An error occured {}'.format(e.payload))
+            self.log('[Hitbox] An error occured {} {} {}'.format(e.status_code,
+                                                                 e.error_code,
+                                                                 e.payload))
             if e.status_code in (403, 404):
                 self.log('[Hitbox] Disabling plugin for {}'.format(guild.id))
                 self.disable(guild)
