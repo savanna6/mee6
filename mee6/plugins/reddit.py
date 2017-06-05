@@ -54,8 +54,11 @@ class Reddit(Plugin):
         valid_subreddits = []
 
         for subreddit in config['subreddits']:
-            sub = subreddit.split('/')[-1].lower()
-            if self.subreddit_rx.match(sub): valid_subreddits.append(sub)
+            splitted = [s for s in subreddit.split('/') if s != ""]
+            if len(splitted) > 0:
+                sub = splitted[-1].lower()
+                if self.subreddit_rx.match(sub):
+                    valid_subreddits.append(sub)
 
         config['subreddits'] = valid_subreddits
 
