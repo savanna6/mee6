@@ -23,18 +23,18 @@ class HTTPClient(Logger):
         else:
             self.ratelimit = LocalRatelimit()
 
-    @property
-    def headers(self):
-        return dict(Authorization="Bot " + self.token)
-
     def build_url(self, route): return self.BASE_URL + '/' + route
 
-    def __call__(self, method, route, **kwargs):
+    def __call__(self, method, route, auth=True, **kwargs):
         url = self.build_url(route)
 
         self.ratelimit.check(route)
 
-        r = requests.request(method, url, headers=self.headers, **kwargs)
+        headers = dict()
+        if auth:
+            headers['Authorization'] = 'Bot ' + self.token
+
+        r = requests.request(method, url, headers=headers, **kwargs)
 
         self.ratelimit.update(route, r)
 

@@ -55,7 +55,7 @@ class APIClient:
                 'username': username,
                 'avatar_url': avatar_url}
 
-        r = self.http.post(path, json=body)
+        r = self.http.post(path, auth=False, json=body)
 
         return Message(**r.json())
 
