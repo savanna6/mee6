@@ -39,7 +39,7 @@ class Ratelimit(Logger):
         retry_after = math.ceil(payload['retry_after'] / 1000.)
         if payload['global']:
             self.set_route('global', math.ceil(time.time() + retry_after))
-            self.log('Hitting global RL, waiting {}s'.format(retry_after))
+            self.log('Received 429: Bucket {} [GLOBAL RATELIMIT], waiting {}s'.format(route, retry_after))
         else:
             self.set_route(route, math.ceil(time.time() + retry_after))
             self.log('Received 429: Bucket {} full, waiting {}s'.format(route,
