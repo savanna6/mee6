@@ -29,20 +29,6 @@ class GuildStorage:
 
 
 class Plugin(Logger):
-    """
-
-    Utility functions:
-        - get_guilds () -> (list of guilds)
-            Gets all the guilds (partial guilds) that have the plugin enabled.
-        - check_guild (guild_id | guild) -> (bool)
-            Checks if a guild has the plugin enabled
-        - get_config (guild_id | guild) -> (dict config)
-            Gets the config of a guild
-        - get_default_config (guild_id | guild) -> (dict config)
-            Gets the default config
-        - patch_config (guild_id | guild, new_config) -> (dict config)
-            Pathes the config of a guild
-    """
     id = "plugin"
     name = "Plugin"
     description = ""
@@ -71,10 +57,12 @@ class Plugin(Logger):
     def enable(self, guild):
         guild_id = get(guild, 'id', guild)
         self.db.sadd('plugins:{}'.format(guild_id), self.name)
+        self.db.sadd('plugin.{}.guilds'.format(self.id), guild_id)
 
     def disable(self, guild):
         guild_id = get(guild, 'id', guild)
         self.db.srem('plugins:{}'.format(guild_id), self.name)
+        self.db.srem('plugin.{}.guilds'.format(self.id), guild_id)
 
     def check_guild(self, guild):
         guild_id = get(guild, 'id', guild)
@@ -164,12 +152,12 @@ class Plugin(Logger):
 
     def get_loop_container(self, loop):
         def loop_container():
+            import traceback
             while True:
                 try:
                     loop()
                 except Exception as e:
-                    self.log('An error occured in loop {},' \
-                             'ignoring...'.format(loop))
+                    traceback.print_exc()
                     gevent.sleep(3)
 
                 gevent.sleep(loop.sleep_time)
