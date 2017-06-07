@@ -47,3 +47,6 @@ def init_dd_agent():
     if dd_agent:
         from datadog import initialize
         initialize(statsd_host=dd_agent, statsd_port=8125)
+
+def real_dict(dct):
+    return {k: v for k, v in dct.items() if v is not None}
