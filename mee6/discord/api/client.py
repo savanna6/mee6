@@ -4,6 +4,7 @@ import redis
 from mee6.discord.api.http import HTTPClient
 from mee6.types import Channel, Guild, Message, Webhook
 from mee6.exceptions import APIException
+from mee6.utils import real_dict
 
 class WebhookStorage:
 
@@ -72,6 +73,19 @@ class APIClient:
                 return self.send_webhook_message(webhook_id, channel_id, message_content)
             else:
                 raise e
+
+    def get_channel_messages(self, channel_id, limit=None, around=None,
+                             before=None, after=None):
+        path = '/channels/{}/messages'.format(channel_id)
+
+        params = real_dict({'limit': limit,
+                            'around': around,
+                            'before': before,
+                            'after': after})
+
+        r = self.http.get(path, params=params)
+
+        return [Message(**message) for message in r.json()]
 
     def send_message(self, channel_id, message_content, embed=None):
         path = 'channels/{}/messages'.format(channel_id)
