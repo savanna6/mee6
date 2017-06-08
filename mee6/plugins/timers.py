@@ -67,8 +67,8 @@ class Timers(Plugin):
             if last_message.author.id == self.me.id:
                 return
 
-        post_message = send_message(channel, message)
-        self.log('Announcing timer message ({} interval) in {}'.format(interval, channel))
-
         now = math.floor(time())
         self.db.set('plugin.timers.{}.last_post_timestamp'.format(timer_id), now)
+
+        post_message = send_message(channel, message)
+        self.log('Announcing timer message ({} interval) in {}'.format(interval, channel))
