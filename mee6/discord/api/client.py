@@ -2,7 +2,7 @@ import os
 import redis
 
 from mee6.discord.api.http import HTTPClient
-from mee6.types import Channel, Guild, Message, Webhook
+from mee6.types import Channel, Guild, Message, Webhook, User
 from mee6.exceptions import APIException
 from mee6.utils import real_dict
 
@@ -86,6 +86,11 @@ class APIClient:
         r = self.http.get(path, params=params)
 
         return [Message(**message) for message in r.json()]
+
+    def get_current_user(self):
+        path = '/users/@me'
+        r = self.http.get(path)
+        return User(**r.json())
 
     def send_message(self, channel_id, message_content, embed=None):
         path = 'channels/{}/messages'.format(channel_id)
