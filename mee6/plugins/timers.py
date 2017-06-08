@@ -2,6 +2,7 @@ from mee6 import Plugin
 from mee6.discord import get_channel_messages, send_message, get_current_user
 from time import time
 from mee6.utils import timed
+from mee6.exceptions import APIException
 
 import hashlib
 import math
@@ -70,5 +71,8 @@ class Timers(Plugin):
         now = math.floor(time())
         self.db.set('plugin.timers.{}.last_post_timestamp'.format(timer_id), now)
 
-        post_message = send_message(channel, message)
-        self.log('Announcing timer message ({} interval) in {}'.format(interval, channel))
+        try:
+            post_message = send_message(channel, message)
+            self.log('Announcing timer message ({} interval) in {}'.format(interval, channel))
+        except APIException as e:
+            self.log('Couldn\'t announce timer message ({} interval) in {}, error: {}'.format(interval, channel, e.payload))
