@@ -49,7 +49,7 @@ class Plugin(Logger):
 
     def get_guilds(self):
         guilds = self.db.smembers('plugin.{}.guilds'.format(self.name))
-        guilds = [guild for guild in guilds if db.sismember('servers', guild)]
+        guilds = [guild for guild in guilds if self.db.sismember('servers', guild)]
 
         return [self._make_guild({'id': id}) for id in guilds]
 

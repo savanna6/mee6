@@ -1,3 +1,6 @@
+from mee6.types import User
+
+
 class Message:
     def __init__(self, **kwargs):
         self.id = kwargs.get('id')
