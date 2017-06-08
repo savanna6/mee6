@@ -55,7 +55,7 @@ class Timers(Plugin):
         interval = timer['interval']
         timer_id = self.get_timer_id(message, interval, channel)
 
-        last_post_timestamp = self.db.get('plugin.timers.{}.timestamp'.format(timer_id))
+        last_post_timestamp = self.db.get('plugin.timers.{}.last_post_timestamp'.format(timer_id))
         last_post_timestamp = int(last_post_timestamp or 0)
 
         if last_post_timestamp + timer['interval'] > now:
