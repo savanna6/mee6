@@ -4,3 +4,4 @@ from mee6.types.guild import *
 from mee6.types.message import *
 from mee6.types.webhook import *
 from mee6.types.message_embed import MessageEmbed
+from mee6.types.user import User
