@@ -48,21 +48,20 @@ class Plugin(Logger):
     def get_guild_storage(self, guild): return GuildStorage(self.db, self, guild)
 
     def get_guilds(self):
-        guilds = (id for id in self.db.smembers('servers'))
-        guilds = filter(lambda g: self.db.sismember('plugins:'+g, self.name),
-                        guilds)
+        guilds = self.db.smembers('plugin.{}.guilds'.format(self.name))
+        guilds = [guild for guild in guilds if db.sismember('servers', guild)]
 
         return [self._make_guild({'id': id}) for id in guilds]
 
     def enable(self, guild):
         guild_id = get(guild, 'id', guild)
         self.db.sadd('plugins:{}'.format(guild_id), self.name)
-        self.db.sadd('plugin.{}.guilds'.format(self.id), guild_id)
+        self.db.sadd('plugin.{}.guilds'.format(self.name), guild_id)
 
     def disable(self, guild):
         guild_id = get(guild, 'id', guild)
         self.db.srem('plugins:{}'.format(guild_id), self.name)
-        self.db.srem('plugin.{}.guilds'.format(self.id), guild_id)
+        self.db.srem('plugin.{}.guilds'.format(self.name), guild_id)
 
     def check_guild(self, guild):
         guild_id = get(guild, 'id', guild)
@@ -70,12 +69,8 @@ class Plugin(Logger):
         if not self.db.sismember('servers', guild_id):
             return False
 
-        # Legacy
         plugins = self.db.smembers('plugins:{}'.format(guild_id))
-        return self.id in map(lambda s: s.lower(), plugins)
-        # /Legacy
-
-        #return self.db.sismember('plugins:{}'.format(guild_id), self.id)
+        return self.name in plugins
 
     def _make_guild(self, guild_payload):
         guild = Guild.from_payload(guild_payload)
