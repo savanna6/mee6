@@ -1,6 +1,7 @@
 from mee6 import Plugin
 from mee6.discord import get_channel_messages, send_message, get_current_user
 from time import time
+from mee6.utils import timed
 
 import hashlib
 import math
@@ -24,11 +25,12 @@ class Timers(Plugin):
     @Plugin.loop(sleep_time=0)
     def loop(self):
         for guild in self.get_guilds():
-            for timer in guild.config['timers']:
-                try:
-                    self.process_timer(timer)
-                except Exception as e:
-                    traceback.print_exc()
+            with timed('timer_delay'):
+                for timer in guild.config['timers']:
+                    try:
+                        self.process_timer(timer)
+                    except Exception as e:
+                        traceback.print_exc()
 
     def get_all_timers(self):
         return [timer for guild in self.get_guilds() for timer in guild.config['timers']]
