@@ -6,6 +6,7 @@ import os
 from mee6.utils import Logger
 from mee6.discord.api.ratelimit import LocalRatelimit, RedisRatelimit
 from mee6.exceptions import APIException
+from mee6.utils import timed
 
 logging.getLogger('requests').setLevel(logging.WARNING)
 
@@ -34,7 +35,8 @@ class HTTPClient(Logger):
         if auth:
             headers['Authorization'] = 'Bot ' + self.token
 
-        r = requests.request(method, url, headers=headers, **kwargs)
+        with timed('api_response_time'):
+            r = requests.request(method, url, headers=headers, **kwargs)
 
         self.ratelimit.update(route, r)
 
