@@ -27,20 +27,22 @@ def get(obj, attr, default=None):
     except AttributeError:
         return default
 
-from contextlib import contextmanager
 from time import time
 from datadog import statsd
-@contextmanager
-def timed(metric, tags={}):
-    start = time()
-    try:
-        yield
-    except Exception as e:
-        raise e
-    finally:
+
+class timed:
+    def __init__(self, metric, tags={}):
+        self.metric = metric
+        self.tags = tags
+
+    def __enter__(self):
+        self.start = time()
+        return self
+
+    def __exit__(self, *args):
         now = time()
-        tags = ['{}:{}'.format(tag_name, value) for tag_name, value in tags.items()]
-        statsd.timing(metric, (now - start) * 1000, tags=tags)
+        tags = ['{}:{}'.format(tag_name, value) for tag_name, value in self.tags.items()]
+        statsd.timing(self.metric, (now - self.start) * 1000, tags=tags)
 
 def init_dd_agent():
     dd_agent = os.getenv('DD_AGENT')
