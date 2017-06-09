@@ -65,7 +65,7 @@ class Timers(Plugin):
         last_messages = get_channel_messages(channel, limit=1)
         if len(last_messages) > 0:
             last_message = last_messages[-1]
-            if last_message.author.id == self.me.id:
+            if last_message.author and last_message.author.id == self.me.id:
                 return
 
         now = math.floor(time())
