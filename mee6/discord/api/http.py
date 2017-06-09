@@ -42,7 +42,7 @@ class HTTPClient(Logger):
             headers['Authorization'] = 'Bot ' + self.token
 
         tags = {'type': self.build_metric_type(method, route)}
-        with timed('api_response_time', tags):
+        with timed('api_request_duration', tags):
             r = requests.request(method, url, headers=headers, **kwargs)
 
         self.ratelimit.update(route, r)
