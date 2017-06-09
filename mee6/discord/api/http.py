@@ -29,7 +29,10 @@ class HTTPClient(Logger):
     def build_url(self, route): return self.BASE_URL + '/' + route
 
     def build_metric_type(self, method, route):
-        parts = [method] + [part for part in route.splitted() if not rx.match(part)]
+        route = route.split('?')[0]
+        route_splitted = route.split('/')
+        route_splitted = [part for part in route_splitted if len(part) < 15]
+        parts = [method] + [part for part in route_splitted if not rx.match(part)]
         return '_'.join(parts)
 
     def __call__(self, method, route, auth=True, **kwargs):
@@ -41,8 +44,8 @@ class HTTPClient(Logger):
         if auth:
             headers['Authorization'] = 'Bot ' + self.token
 
-        tags = {'type': self.build_metric_type(method, route)}
-        with timed('api_request_duration', tags):
+        tags = {'request_type': self.build_metric_type(method, route)}
+        with timed('api_request_duration', tags=tags):
             r = requests.request(method, url, headers=headers, **kwargs)
 
         self.ratelimit.update(route, r)
