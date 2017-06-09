@@ -2,6 +2,7 @@ import requests
 import logging
 import gevent
 import os
+import re
 
 from mee6.utils import Logger
 from mee6.discord.api.ratelimit import LocalRatelimit, RedisRatelimit
@@ -10,6 +11,7 @@ from mee6.utils import timed
 
 logging.getLogger('requests').setLevel(logging.WARNING)
 
+rx = re.compile(r'^[0-9]*$')
 
 class HTTPClient(Logger):
 
@@ -26,6 +28,10 @@ class HTTPClient(Logger):
 
     def build_url(self, route): return self.BASE_URL + '/' + route
 
+    def build_metric_type(self, method, route):
+        parts = [method] + [part for part in route.splitted() if not rx.match(part)]
+        return '_'.join(parts)
+
     def __call__(self, method, route, auth=True, **kwargs):
         url = self.build_url(route)
 
@@ -35,7 +41,8 @@ class HTTPClient(Logger):
         if auth:
             headers['Authorization'] = 'Bot ' + self.token
 
-        with timed('api_response_time'):
+        tags = {'type': self.build_metric_type(method, route)}
+        with timed('api_response_time', tags):
             r = requests.request(method, url, headers=headers, **kwargs)
 
         self.ratelimit.update(route, r)
