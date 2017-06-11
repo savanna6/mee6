@@ -2,6 +2,7 @@ import redis
 import os
 import gevent
 import json
+import mee6.types
 
 from mee6.types import Guild
 from mee6.utils import Logger, get
@@ -32,6 +33,8 @@ class Plugin(Logger):
     id = "plugin"
     name = "Plugin"
     description = ""
+
+    is_global = False
 
     db = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
 
@@ -118,24 +121,30 @@ class Plugin(Logger):
     def after_config_patch(self, guild_id, config): pass
     def validate_config(self, guild_id, config): return config
 
-    def dispatch(self, event):
-        event_type = event['t'].lower()
-        guild_payload = event['g']
-        data = event['d']
-
-        try:
-            listener = getattr(self, 'on_' + event_type)
-        except AttributeError:
-            listener = None
-
-        if not handler: return
-
-        guild = self._make_guild(guild_payload)
+    def handle_event(self, payload):
+        event_type = payload['t']
+        guild = self._make_guild(payload['g'])
+        data = payload.get('d')
 
         if data:
-            gevent.spawn(handler, guild, data)
-        else:
-            gevent.spawn(handler, guild)
+            data_type_name = event_type.split('_')[0].lower()
+            data_type_module = get(mee6.types, data_type_name)
+            if data_type_module:
+                data_type = get(data_type_module, data_type_name.capitalize())
+            else:
+                data_type = None
+
+            if data_type:
+                decoded_data = data_type(**data)
+            else:
+                decoded_data = data
+
+        listener = get(self, 'on_' + event_type.lower())
+        if listener:
+            if data:
+                gevent.spawn(listener, guild, decoded_data)
+            else:
+                gevent.spawn(listener, guild)
 
     @classmethod
     def loop(cls, sleep_time=1):
