@@ -24,6 +24,7 @@ def plugin(plugin_name):
 @click.argument('plugins', nargs=-1)
 def worker(plugins):
     plugins = [get(mee6.plugins, plugin_name) for plugin_name in plugins]
+
     mee6_worker.run(*plugins)
 
 cli()
