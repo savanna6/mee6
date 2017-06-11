@@ -1,4 +1,5 @@
 from mee6.types.user import User
+from mee6.types.member import Member
 from mee6.types.channel import *
 from mee6.types.role import *
 from mee6.types.guild import *
