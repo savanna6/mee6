@@ -1,4 +1,5 @@
 from mee6.types import Channel, Role
+from mee6.utils import listify
 
 class Guild:
 
@@ -10,8 +11,8 @@ class Guild:
         self.id = kwargs.get('id')
         self.name = kwargs.get('name')
         self.owner_id = kwargs.get('owner_id')
-        self.roles = [Role.from_payload(r) for r in kwargs.get('roles', [])]
-        self.channels = [Channel.from_payload(c) for c in kwargs.get('channels', [])]
+        self.roles = [Role.from_payload(r) for r in listify(kwargs.get('roles', []))]
+        self.channels = [Channel.from_payload(c) for c in listify(kwargs.get('channels', []))]
 
         self.db = kwargs.get('db')
         self.plugin = kwargs.get('plugin')
@@ -24,5 +25,11 @@ class Guild:
 
     @property
     def storage(self): return self.plugin.get_guild_storage(self)
+
+    @property
+    def voice_channels(self): return [c for c in self.channels if c.type == 2]
+
+    @property
+    def text_channels(self): return [c for c in self.channels if c.type == 0]
 
     def __repr__(self): return "<Guild id={} name={}>".format(self.id, self.name)
