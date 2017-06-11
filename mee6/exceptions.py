@@ -16,3 +16,13 @@ class APIException(Exception):
 
         super(APIException, self).__init__(msg)
 
+
+class RPCException(Exception):
+    def __init__(self, r):
+        msg = 'Request failed status_code={} payload={}'.format(r.status_code,
+                                                                r.text)
+        self.payload = r.text
+        self.status_code = r.status_code
+
+        super(APIException, self).__init__(msg)
+
