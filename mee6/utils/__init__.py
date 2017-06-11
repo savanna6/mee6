@@ -52,3 +52,8 @@ def init_dd_agent():
 
 def real_dict(dct):
     return {k: v for k, v in dct.items() if v is not None}
+
+def listify(list_or_dict):
+    if type(list_or_dict) == dict:
+        return list_or_dict.values()
+    return list_or_dict
