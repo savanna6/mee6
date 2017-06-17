@@ -10,4 +10,8 @@ class Channel:
         self.position = kwargs.get('position')
         self.permission_overwrites = kwargs.get('permission_overwrites')
 
+    @property
+    def mention(self):
+        return '<#{}>'.format(self.id)
+
     def __repr__(self): return "<Channel id={} name={}>".format(self.id, self.name)

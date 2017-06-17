@@ -1,11 +1,14 @@
 import redis
 import os
 import gevent
-import json
 import mee6.types
+import inspect
 
 from mee6.types import Guild
-from mee6.utils import Logger, get
+from mee6.utils import Logger, get, json
+from mee6.command import Command
+from mee6 import Permission
+
 
 class GuildStorage:
     def __init__(self, db, plugin, guild):
@@ -33,12 +36,67 @@ class Plugin(Logger):
     id = "plugin"
     name = "Plugin"
     description = ""
+    _permissions = {}
 
     is_global = False
 
     db = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
 
-    def on_message_create(self, guild, message): pass
+    def __init__(self):
+        methods = inspect.getmembers(self, predicate=inspect.ismethod)
+        commands_callbacks = [meth for name, meth in methods if get(meth, 'command_info')]
+
+        self.commands = []
+        for cb in commands_callbacks:
+            info = cb.command_info
+
+            opts = dict()
+            opts['expression'] = info['expression']
+            opts['description'] = info['description']
+            opts['callback'] = cb
+            opts['after_check'] = self.check_command_permission
+            command = Command(**opts)
+            self.commands.append(command)
+
+            command_permission_name = self.command_permission_name(command)
+
+            if not info.get('default_restrict'):
+                command_permission = Permission(command_permission_name,
+                                                default=lambda gid: [gid])
+            else:
+                command_permission = Permission(command_permission_name)
+
+            self._permissions[command_permission.name] = command_permission
+
+        # Configs group keys
+        key = 'plugin.' + self.id + '.configs'
+        self.config_db = GroupKeys(self.id, self.db)
+
+    @property
+    def db_prefix(self):
+        return 'plugin.' + self.id + '.'
+
+    def command_permission_name(self, command):
+        return 'cmd-' + self.id + '.' + command.name
+
+    def check_command_permission(self, command, ctx):
+        member_permissions = ctx.author.get_permissions(ctx.guild)
+        if ( member_permissions >> 5 & 1 ) or ( member_permissions >> 3 & 1):
+            return True
+
+        if int(ctx.author.id) == int(ctx.guild.owner_id):
+            return True
+
+        command_permission_name = self.command_permission_name(command)
+        permission = self._permissions[command_permission_name]
+        if not permission.is_allowed(ctx.guild, ctx.author):
+            return False
+
+        return True
+
+    def on_message_create(self, guild, message):
+        for command in self.commands:
+            command.execute(guild, message)
 
     def on_guild_join(self, guild): pass
 
@@ -85,12 +143,14 @@ class Plugin(Logger):
         guild_id = get(guild, 'id', guild)
 
         key = 'plugin.{}.config.{}'.format(self.id, guild_id)
-        config = self.db.get(key)
+        raw_config = self.config_db.get(key)
 
-        if config:
-            return json.loads(config)
+        if raw_config:
+            config = json.loads(raw_config)
+        else:
+            config = self.get_default_config(guild_id)
 
-        return self.get_default_config(guild_id)
+        return config
 
     def get_default_config(self, guild_id):
         default_config = {}
@@ -109,8 +169,8 @@ class Plugin(Logger):
         # validation
         config = self.validate_config(guild_id, config)
 
-        self.db.set('plugin.{}.config.{}'.format(self.id, guild_id),
-                    json.dumps(config))
+        self.config_db.set('plugin.{}.config.{}'.format(self.id, guild_id),
+                           json.dumps(config))
 
         # post-hook
         self.after_config_patch(guild_id, config)
@@ -121,8 +181,12 @@ class Plugin(Logger):
     def after_config_patch(self, guild_id, config): pass
     def validate_config(self, guild_id, config): return config
 
+    def get_permissions(self, guild):
+        guild_id = get(guild, 'id', guild)
+
     def handle_event(self, payload):
         event_type = payload['t']
+        print(event_type)
         guild = self._make_guild(payload['g'])
         data = payload.get('d')
 

@@ -52,7 +52,6 @@ class Timers(Plugin):
                 if e.status_code in (403, 404):
                     self.log('Disabling plugin for {}'.format(guild.id))
                     self.disable(guild)
-        gevent.sleep(5)
 
     def get_all_timers(self):
         return [timer for guild in self.get_guilds() for timer in guild.config['timers']]
@@ -92,6 +91,7 @@ class Timers(Plugin):
                 return
 
         now = math.floor(time())
+
         self.db.set('plugin.timers.{}.last_post_timestamp'.format(timer_id), now)
 
         webhook_id = 'timers:{}'.format(channel)

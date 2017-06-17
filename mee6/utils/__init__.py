@@ -1,5 +1,10 @@
 import os
 
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
 from mee6.utils.logger import Logger
 
 def chunk(l, n):
@@ -57,3 +62,4 @@ def listify(list_or_dict):
     if type(list_or_dict) == dict:
         return list_or_dict.values()
     return list_or_dict
+

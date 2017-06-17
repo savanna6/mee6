@@ -24,5 +24,5 @@ class RPCException(Exception):
         self.payload = r.text
         self.status_code = r.status_code
 
-        super(APIException, self).__init__(msg)
+        super(RPCException, self).__init__(msg)
 
