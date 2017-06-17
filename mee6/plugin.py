@@ -6,6 +6,7 @@ import inspect
 
 from mee6.types import Guild
 from mee6.utils import Logger, get, json
+from mee6.utils.redis import GroupKeys
 from mee6.command import Command
 from mee6 import Permission
 
