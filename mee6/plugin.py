@@ -43,7 +43,7 @@ class Plugin(Logger):
 
     db = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
 
-    def __init__(self):
+    def __init__(self, in_bot=False):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
         commands_callbacks = [meth for name, meth in methods if get(meth, 'command_info')]
 
@@ -69,9 +69,11 @@ class Plugin(Logger):
 
             self._permissions[command_permission.name] = command_permission
 
+        self.in_bot = in_bot
+
         # Configs group keys
         key = 'plugin.' + self.id + '.configs'
-        self.config_db = GroupKeys(self.id, self.db)
+        self.config_db = GroupKeys(self.id, self.db, cache=in_bot)
 
     @property
     def db_prefix(self):
