@@ -43,7 +43,7 @@ class Plugin(Logger):
 
     db = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
 
-    def __init__(self, in_bot=False):
+    def __init__(self, in_bot=True):
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
         commands_callbacks = [meth for name, meth in methods if get(meth, 'command_info')]
 
@@ -73,7 +73,8 @@ class Plugin(Logger):
 
         # Configs group keys
         key = 'plugin.' + self.id + '.configs'
-        self.config_db = GroupKeys(self.id, self.db, cache=in_bot)
+        self.config_db = GroupKeys(self.id, self.db, cache=in_bot,
+                                   callback=self.handle_config_change)
 
     @property
     def db_prefix(self):
@@ -96,6 +97,8 @@ class Plugin(Logger):
             return False
 
         return True
+
+    def on_config_change(self, guild, config): pass
 
     def on_message_create(self, guild, message):
         for command in self.commands:
@@ -141,6 +144,18 @@ class Plugin(Logger):
         guild.db = self.db
         guild.plugin = self
         return guild
+
+    def handle_config_change(self, payload):
+        op = payload[0]
+        if op == 's':
+            key = payload[1]
+            value = payload[2]
+
+            guild_id = int(key.split('.')[-1])
+            config = json.loads(value)
+            guild = self._make_guild({'id': guild_id})
+
+            self.on_config_change(guild, config)
 
     def get_config(self, guild):
         guild_id = get(guild, 'id', guild)
@@ -189,7 +204,6 @@ class Plugin(Logger):
 
     def handle_event(self, payload):
         event_type = payload['t']
-        print(event_type)
         guild = self._make_guild(payload['g'])
         data = payload.get('d')
 
