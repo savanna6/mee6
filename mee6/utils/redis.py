@@ -6,7 +6,7 @@ from gevent.lock import Semaphore
 
 class GroupKeys:
 
-    def __init__(self, channel_name, redis=None, cache=True):
+    def __init__(self, channel_name, redis=None, cache=True, callback=None):
         self.channel_name = channel_name
 
         self.redis = redis
@@ -15,6 +15,8 @@ class GroupKeys:
         self.pubsub.subscribe(channel_name)
 
         self._lock = Semaphore()
+
+        self.callback = callback
 
         if cache:
             self.cache = {}
@@ -59,3 +61,6 @@ class GroupKeys:
                     key = payload[1]
                     value = payload[2]
                     self.cache[key] = value
+
+                if self.callback:
+                    gevent.spawn(self.callback, payload)
