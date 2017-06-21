@@ -64,3 +64,36 @@ class GroupKeys:
 
                 if self.callback:
                     gevent.spawn(self.callback, payload)
+
+class PrefixedRedis:
+    def __init__(self, redis=None, prefix=''):
+        self.rdb = redis
+        self.pre = prefix
+
+    def publish(self, key, value):
+        return self.rdb.publish(self.pre + key, value)
+
+    def get(self, key):
+        return self.rdb.get(self.pre + key)
+
+    def set(self, key, value):
+        return self.rdb.set(self.pre + key, value)
+
+    def setex(self, key, value, expire):
+        return self.rdb.set(self.pre + key, value, expire)
+
+    def sismember(self, key, value):
+        return self.rdb.sismember(self.pre + key, value)
+
+    def smembers(self, key):
+        return self.rdb.smembers(self.pre + key)
+
+    def sadd(self, key, *values):
+        return self.rdb.sadd(self.pre + key, *values)
+
+    def delete(self, key):
+        return self.rdb.deletes(self.pre + key)
+
+    @property
+    def pubsub(self):
+        return self.rdb.pubsub
