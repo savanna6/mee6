@@ -63,3 +63,18 @@ def listify(list_or_dict):
         return list_or_dict.values()
     return list_or_dict
 
+def is_snowflake(elem):
+    try:
+        elem = int(elem)
+        return True
+    except ValueError:
+        return False
+
+def get_plugins(**kwargs):
+    import mee6.plugins
+    import inspect
+    modules = [m for m in inspect.getmembers(mee6.plugins) if inspect.ismodule(m[1])]
+    plugins_classes = [get(pmod, pname.capitalize()) for pname, pmod in modules]
+    plugins = [P(**kwargs) for P in plugins_classes]
+    return plugins
+
