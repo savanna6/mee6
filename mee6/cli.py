@@ -27,4 +27,9 @@ def worker(plugins):
 
     mee6_worker.run(*plugins)
 
+@cli.command('api')
+def api():
+    from mee6.api.api import app
+    app.run()
+
 cli()
