@@ -6,47 +6,74 @@ import inspect
 
 from mee6.types import Guild
 from mee6.utils import Logger, get, json
-from mee6.utils.redis import GroupKeys
+from mee6.utils.redis import GroupKeys, PrefixedRedis
 from mee6.command import Command
 from mee6 import Permission
 
 
-class GuildStorage:
-    def __init__(self, db, plugin, guild):
+class PermissionStorage:
+    def __init__(self, db):
         self.db = db
-        self.pre = 'plugin.{}.guild.{}.storage:'.format(plugin.id,
-                                                        guild.id)
 
-    def get(self, key):
-        return self.db.get(self.pre + key)
+    def get(self, permission_id, guild, default=[]):
+        key = 'permission.{}.guild.{}'.format(permission_id, guild.id)
+        is_set_key = key + '.is_set'
 
-    def set(self, key, value):
-        return self.db.set(self.pre + key, value)
+        if not self.db.get(is_set_key):
+            return default
 
-    def sismember(self, key, value):
-        return self.db.sismember(self.pre + key, value)
+        return list(self.db.smembers(key))
 
-    def smembers(self, key):
-        return self.db.smembers(self.pre + key)
+    def set(self, permission_id, guild, roles):
+        roles_ids = []
+        for role in roles:
+            role_id = get(role, 'id', role)
+            roles_ids.append(role)
 
-    def sadd(self, key, *values):
-        return self.db.sadd(self.pre + key, *values)
+        key = 'permission.{}.guild.{}'.format(permission_id, guild.id)
+        is_set_key = key + '.is_set'
+
+        self.db.set(is_set_key, 1)
+
+        self.db.delete(key)
+        if roles_ids != []:
+            self.db.sadd(key, *roles_ids)
+
+        return roles_ids
 
 
 class Plugin(Logger):
     id = "plugin"
     name = "Plugin"
     description = ""
-    _permissions = {}
 
     is_global = False
 
     db = redis.from_url(os.getenv('REDIS_URL'), decode_responses=True)
 
+    guild_storages = {}
+
+    def to_dict(self, guild_id=None):
+        dct = {'id': self.id,
+               'name': self.name,
+               'description': self.description,
+               'commands': [cmd.to_dict(guild_id) for cmd in self.commands]}
+
+        if guild_id is not None:
+            dct['enabled'] = self.check_guild(guild_id)
+            dct['config'] = self.get_config(guild_id)
+
+        return dct
+
     def __init__(self, in_bot=True):
+        self.plugin_db = PrefixedRedis(self.db, 'plugin.' + self.id + '.')
+
+        self.in_bot = in_bot
+
+        self.permission_storage = PermissionStorage(self.plugin_db)
+
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
         commands_callbacks = [meth for name, meth in methods if get(meth, 'command_info')]
-
         self.commands = []
         for cb in commands_callbacks:
             info = cb.command_info
@@ -55,48 +82,20 @@ class Plugin(Logger):
             opts['expression'] = info['expression']
             opts['description'] = info['description']
             opts['callback'] = cb
-            opts['after_check'] = self.check_command_permission
+            opts['plugin'] = self
+            opts['restrict_default'] = info.get('restrict_default', False)
+
             command = Command(**opts)
             self.commands.append(command)
 
-            command_permission_name = self.command_permission_name(command)
-
-            if not info.get('default_restrict'):
-                command_permission = Permission(command_permission_name,
-                                                default=lambda gid: [gid])
-            else:
-                command_permission = Permission(command_permission_name)
-
-            self._permissions[command_permission.name] = command_permission
-
-        self.in_bot = in_bot
-
         # Configs group keys
-        key = 'plugin.' + self.id + '.configs'
-        self.config_db = GroupKeys(self.id, self.db, cache=in_bot,
+        self.config_db = GroupKeys(self.id + '.config', self.plugin_db, cache=in_bot,
                                    callback=self.handle_config_change)
 
-    @property
-    def db_prefix(self):
-        return 'plugin.' + self.id + '.'
+        # Commands Configs group keys
+        self.commands_config_db = GroupKeys(self.id + '.cmd-config', self.plugin_db, cache=in_bot,
+                                            callback=self.handle_commands_config_change)
 
-    def command_permission_name(self, command):
-        return 'cmd-' + self.id + '.' + command.name
-
-    def check_command_permission(self, command, ctx):
-        member_permissions = ctx.author.get_permissions(ctx.guild)
-        if ( member_permissions >> 5 & 1 ) or ( member_permissions >> 3 & 1):
-            return True
-
-        if int(ctx.author.id) == int(ctx.guild.owner_id):
-            return True
-
-        command_permission_name = self.command_permission_name(command)
-        permission = self._permissions[command_permission_name]
-        if not permission.is_allowed(ctx.guild, ctx.author):
-            return False
-
-        return True
 
     def on_config_change(self, guild, config): pass
 
@@ -112,7 +111,18 @@ class Plugin(Logger):
 
     def on_member_leave(self, guild, member): pass
 
-    def get_guild_storage(self, guild): return GuildStorage(self.db, self, guild)
+    def get_guild_storage(self, guild):
+        guild_id = get(guild, 'id', guild)
+        guild_storage = self.guild_storages.get(guild_id)
+
+        if guild_storage:
+            return guild_storage
+
+        prefix = 'plugin.{}.guild.{}.storage'.format(self.id, guild_id)
+        guild_storage = PrefixedRedis(self.db, prefix)
+        self.guild_storages[guild_id] = guild_storage
+
+        return guild_storage
 
     def get_guilds(self):
         guilds = self.db.smembers('plugin.{}.guilds'.format(self.name))
@@ -145,6 +155,9 @@ class Plugin(Logger):
         guild.plugin = self
         return guild
 
+    def handle_commands_config_change(self, payload):
+        pass
+
     def handle_config_change(self, payload):
         op = payload[0]
         if op == 's':
@@ -160,7 +173,7 @@ class Plugin(Logger):
     def get_config(self, guild):
         guild_id = get(guild, 'id', guild)
 
-        key = 'plugin.{}.config.{}'.format(self.id, guild_id)
+        key = 'config.{}'.format(self.id, guild_id)
         raw_config = self.config_db.get(key)
 
         if raw_config:
@@ -187,7 +200,7 @@ class Plugin(Logger):
         # validation
         config = self.validate_config(guild_id, config)
 
-        self.config_db.set('plugin.{}.config.{}'.format(self.id, guild_id),
+        self.config_db.set('config.{}'.format(self.id, guild_id),
                            json.dumps(config))
 
         # post-hook
