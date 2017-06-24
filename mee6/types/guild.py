@@ -8,7 +8,7 @@ class Guild:
         return cls(**payload)
 
     def __init__(self, **kwargs):
-        self.id = kwargs.get('id')
+        self.id = int(kwargs.get('id'))
         self.name = kwargs.get('name')
         self.owner_id = kwargs.get('owner_id')
         self.roles = [Role.from_payload(r) for r in listify(kwargs.get('roles', []))]

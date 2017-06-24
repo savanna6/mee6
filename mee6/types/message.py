@@ -3,7 +3,7 @@ from mee6.types import User
 
 class Message:
     def __init__(self, **kwargs):
-        self.id = kwargs.get('id')
+        self.id = int(kwargs.get('id'))
         self.channel_id = kwargs.get('channel_id')
         self.content = kwargs.get('content')
         self.timestamp = kwargs.get('timestamp')

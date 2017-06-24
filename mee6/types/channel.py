@@ -4,7 +4,7 @@ class Channel:
     def from_payload(cls, payload): return cls(**payload)
 
     def __init__(self, **kwargs):
-        self.id = kwargs.get('id')
+        self.id = int(kwargs.get('id'))
         self.name = kwargs.get('name')
         self.type = kwargs.get('type')
         self.position = kwargs.get('position')
