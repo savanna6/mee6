@@ -45,7 +45,7 @@ class GroupKeys:
 
         payload = ['s', key, value]
         packet = json.dumps(payload)
-        self.redis.publish(self.channel_name, packet)
+        self.redis.rdb.publish(self.channel_name, packet)
 
     def watch(self):
         for frame in self.pubsub.listen():
