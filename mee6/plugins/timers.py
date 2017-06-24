@@ -5,6 +5,7 @@ from mee6.utils import timed
 from mee6.exceptions import APIException
 from gevent.lock import Semaphore
 from random import randint
+from datadog import statsd
 
 import hashlib
 import math
@@ -127,6 +128,9 @@ class Timers(Plugin):
             post_message = send_webhook_message(webhook_id, channel, message)
             self.db.sadd('plugin.timers.webhooks', post_message.webhook_id)
             self.log('Announcing timer message ({} interval) in {}'.format(interval, channel))
+
+            if last_post_timestamp != 0:
+                statsd.timing('timers_delay', int(time()) - next_announce)
 
         return now + timer['interval']
 
