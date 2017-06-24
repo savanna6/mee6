@@ -8,38 +8,6 @@ from mee6.types import Guild
 from mee6.utils import Logger, get, json
 from mee6.utils.redis import GroupKeys, PrefixedRedis
 from mee6.command import Command
-from mee6 import Permission
-
-
-class PermissionStorage:
-    def __init__(self, db):
-        self.db = db
-
-    def get(self, permission_id, guild, default=[]):
-        key = 'permission.{}.guild.{}'.format(permission_id, guild.id)
-        is_set_key = key + '.is_set'
-
-        if not self.db.get(is_set_key):
-            return default
-
-        return list(self.db.smembers(key))
-
-    def set(self, permission_id, guild, roles):
-        roles_ids = []
-        for role in roles:
-            role_id = get(role, 'id', role)
-            roles_ids.append(role)
-
-        key = 'permission.{}.guild.{}'.format(permission_id, guild.id)
-        is_set_key = key + '.is_set'
-
-        self.db.set(is_set_key, 1)
-
-        self.db.delete(key)
-        if roles_ids != []:
-            self.db.sadd(key, *roles_ids)
-
-        return roles_ids
 
 
 class Plugin(Logger):
@@ -69,8 +37,6 @@ class Plugin(Logger):
         self.plugin_db = PrefixedRedis(self.db, 'plugin.' + self.id + '.')
 
         self.in_bot = in_bot
-
-        self.permission_storage = PermissionStorage(self.plugin_db)
 
         methods = inspect.getmembers(self, predicate=inspect.ismethod)
         commands_callbacks = [meth for name, meth in methods if get(meth, 'command_info')]
@@ -173,7 +139,7 @@ class Plugin(Logger):
     def get_config(self, guild):
         guild_id = get(guild, 'id', guild)
 
-        key = 'config.{}'.format(self.id, guild_id)
+        key = 'config.{}'.format(guild_id)
         raw_config = self.config_db.get(key)
 
         if raw_config:
@@ -200,7 +166,7 @@ class Plugin(Logger):
         # validation
         config = self.validate_config(guild_id, config)
 
-        self.config_db.set('config.{}'.format(self.id, guild_id),
+        self.config_db.set('config.{}'.format(guild_id),
                            json.dumps(config))
 
         # post-hook
@@ -211,9 +177,6 @@ class Plugin(Logger):
     def before_config_patch(self, guild_id, old_config, new_config): pass
     def after_config_patch(self, guild_id, config): pass
     def validate_config(self, guild_id, config): return config
-
-    def get_permissions(self, guild):
-        guild_id = get(guild, 'id', guild)
 
     def handle_event(self, payload):
         event_type = payload['t']
