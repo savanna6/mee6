@@ -71,7 +71,7 @@ class Music(Plugin):
         pass
 
     @Command.register('!add <music:str>')
-    def add_music(self, ctx, music):
+    def add(self, ctx, music):
         if not music.startswith('http'):
             music = self.get_youtube_url(music)
             if not music:
