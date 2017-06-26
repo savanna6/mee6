@@ -116,7 +116,7 @@ class Plugin(Logger):
         return self.name in plugins
 
     def _make_guild(self, guild_payload):
-        guild = Guild.from_payload(guild_payload)
+        guild = Guild(**guild_payload)
         guild.db = self.db
         guild.plugin = self
         return guild
