@@ -1,21 +1,19 @@
+from modus import Model
+from modus.fields import Snowflake, String, Integer, List, ModelField
 from mee6.types import Channel, Role
-from mee6.utils import listify
 
-class Guild:
 
-    @classmethod
-    def from_payload(cls, payload):
-        return cls(**payload)
+class Guild(Model):
+    id = Snowflake(required=True)
+    name = String()
+    owner_id = Snowflake()
+    roles = List(ModelField(Role))
+    channels = List(ModelField(Channel))
 
     def __init__(self, **kwargs):
-        self.id = int(kwargs.get('id'))
-        self.name = kwargs.get('name')
-        self.owner_id = kwargs.get('owner_id')
-        self.roles = [Role.from_payload(r) for r in listify(kwargs.get('roles', []))]
-        self.channels = [Channel.from_payload(c) for c in listify(kwargs.get('channels', []))]
-
         self.db = kwargs.get('db')
         self.plugin = kwargs.get('plugin')
+        super(Guild, self).__init__(**kwargs)
 
     @property
     def members(self): pass

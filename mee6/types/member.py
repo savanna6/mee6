@@ -1,25 +1,31 @@
+from modus import Model
+from modus.fields import Snowflake, String, Integer, List, ModelField
 from mee6.types import User
 
 
-class Member:
-    def __init__(self, **kwargs):
-        self.user = User(**kwargs.get('user', {}))
-        self.nick = kwargs.get('nick')
-        self.roles = kwargs.get('roles')
-        self.joined_at = kwargs.get('joined_at')
-        self.deaf = kwargs.get('deaf')
-        self.mute = kwargs.get('mute')
-        self.voice_state = kwargs.get('voice_state')
+class VoiceState(Model):
+    guild_id = Snowflake()
+    channel_id = Snowflake()
+    user_id = Snowflake()
+    session_id = String()
+
+
+class Member(Model):
+    user = ModelField(User)
+    nick = String()
+    roles = List(Snowflake())
+    joined_at = String()
+    voice_state = ModelField(VoiceState)
 
     def get_voice_channel(self, guild):
         if not self.voice_state:
             return None
 
-        if not self.voice_state['channel_id']:
+        if not self.voice_state.channel_id:
             return None
 
         for vc in guild.voice_channels:
-            if vc.id == self.voice_state['channel_id']:
+            if vc.id == self.voice_state.channel_id:
                 return vc
 
         return None

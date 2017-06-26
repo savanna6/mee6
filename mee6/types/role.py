@@ -1,11 +1,10 @@
-class Role:
+from modus import Model
+from modus.fields import Snowflake, String, Integer
 
-    @classmethod
-    def from_payload(cls, payload): return cls(**payload)
 
-    def __init__(self, **kwargs):
-        self.id = int(kwargs.get('id'))
-        self.name = kwargs.get('name')
-        self.color = kwargs.get('color')
-        self.permissions = kwargs.get('permissions')
-        self.managed = kwargs.get('managed')
+class Role(Model):
+    id = Snowflake(required=True)
+    name = String()
+    color = Integer()
+    permissions = Integer()
+

@@ -1,17 +1,17 @@
-class Channel:
+from modus import Model
+from modus.fields import Snowflake, String, Integer
 
-    @classmethod
-    def from_payload(cls, payload): return cls(**payload)
 
-    def __init__(self, **kwargs):
-        self.id = int(kwargs.get('id'))
-        self.name = kwargs.get('name')
-        self.type = kwargs.get('type')
-        self.position = kwargs.get('position')
-        self.permission_overwrites = kwargs.get('permission_overwrites')
+class Channel(Model):
+    id = Snowflake(required=True)
+    name = String()
+    type = Integer()
+    position = Integer()
 
     @property
     def mention(self):
         return '<#{}>'.format(self.id)
 
     def __repr__(self): return "<Channel id={} name={}>".format(self.id, self.name)
+
+
