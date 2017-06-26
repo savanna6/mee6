@@ -28,6 +28,13 @@ class GroupKeys:
     def cache_enable(self):
         return self.cache is not None
 
+    def _publish(self, value):
+        if isinstance(self.redis, PrefixedRedis):
+            rdb = self.redis.rdb
+        else:
+            rdb = self.redis
+        return rdb.publish(self.channel_name, value)
+
     def get(self, key):
         if self.cache_enable:
             value = self.cache.get(key)
@@ -45,7 +52,7 @@ class GroupKeys:
 
         payload = ['s', key, value]
         packet = json.dumps(payload)
-        self.redis.rdb.publish(self.channel_name, packet)
+        self._publish(packet)
 
     def watch(self):
         for frame in self.pubsub.listen():
