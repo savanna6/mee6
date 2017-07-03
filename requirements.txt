@@ -5,4 +5,4 @@ click==6.6
 datadog==0.16.0
 youtube_dl==2017.05.18
 flask==0.12.2
-modus==git+https://github.com/cookkkie/modus
+modus==0.0.3
