@@ -54,6 +54,12 @@ class GroupKeys:
         packet = json.dumps(payload)
         self._publish(packet)
 
+    def delete(self, key):
+        self.redis.delete(key)
+        payload = ['d', key]
+        packet = json.dumps(payload)
+        self._publish(packet)
+
     def watch(self):
         for frame in self.pubsub.listen():
             if frame['type'] != 'message':
@@ -68,6 +74,11 @@ class GroupKeys:
                     key = payload[1]
                     value = payload[2]
                     self.cache[key] = value
+
+                if op == 'd':
+                    key = payload[1]
+                    if self.cache.get(key):
+                        del self.cache[key]
 
                 if self.callback:
                     gevent.spawn(self.callback, payload)
@@ -99,7 +110,7 @@ class PrefixedRedis:
         return self.rdb.sadd(self.pre + key, *values)
 
     def delete(self, key):
-        return self.rdb.deletes(self.pre + key)
+        return self.rdb.delete(self.pre + key)
 
     @property
     def pubsub(self):
