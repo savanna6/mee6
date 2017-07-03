@@ -1,21 +1,24 @@
 from mee6.utils import get_plugins, get
 from flask import Flask, request, jsonify, abort
+from modus.exceptions import ValidationError
 
 app = Flask(__name__)
 
 plugins = get_plugins(in_bot=False)
 
 def get_plugin_or_abort(gid, pid):
-    plugin = next(plugin for plugin in plugins if plugin.id == pid)
-    if not plugin:
-        abort(404)
+    try:
+        plugin = next(plugin for plugin in plugins if plugin.id == pid)
+    except StopIteration:
+        return abort(404)
 
     return plugin
 
 def get_plugin_command_or_abort(plugin, command_name):
-    command = next(command for command in plugin.commands if command.name == command_name)
-    if not command:
-        abort(404)
+    try:
+        command = next(command for command in plugin.commands if command.name == command_name)
+    except StopIteration:
+        return abort(404)
 
     return command
 
@@ -74,8 +77,22 @@ def patch_guild_plugin_command_config(gid, pid, command_name):
     plugin = get_plugin_or_abort(gid, pid)
     command = get_plugin_command_or_abort(plugin, command_name)
     data = request.json
-    command.patch_config(gid, request.json)
+
+    try:
+        command.patch_config(gid, request.json)
+    except ValidationError as e:
+        return jsonify({'errors': e.errors}), 400
+
     return jsonify(command.to_dict(gid)['config'])
+
+@app.route('/guilds/<int:gid>/plugins/<string:pid>/commands/<string:command_name>/config',
+           methods=['DELETE'])
+def delete_guild_plugin_command_config(gid, pid, command_name):
+    plugin = get_plugin_or_abort(gid, pid)
+    command = get_plugin_command_or_abort(plugin, command_name)
+    command.delete_config(gid)
+    return jsonify({}), 200
+
 
 @app.route('/guilds/<int:gid>/plugins/<string:pid>/config')
 def get_guild_plugin_config(gid, pid):
@@ -88,6 +105,7 @@ def patch_guild_plugin_config(gid, pid):
     data = request.json
     plugin.patch_config(gid, data)
     return jsonify(plugin.to_dict(gid)['config'])
+
 
 if __name__ == '__main__':
     app.debug = True
