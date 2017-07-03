@@ -8,6 +8,9 @@ from mee6.command.utils import build_regex
 from mee6.command import Response
 from mee6.utils.redis import GroupKeys, PrefixedRedis
 from functools import wraps
+from modus import Model
+from modus.fields import String, Boolean, Integer, List, Snowflake
+from modus.exceptions import FieldValidationError
 
 
 class CommandContext:
@@ -19,11 +22,31 @@ class CommandContext:
     def author(self):
         return get_guild_member(self.guild.id, self.message.author.id)
 
+
 class CommandMatch:
     def __init__(self, command, rx_match):
         self.command = command
         self.rx_match = rx_match
         self.arguments = [t(arg) for t, arg in zip(command.cast_to, rx_match.groups())]
+
+
+class Cooldown(Integer):
+    def __init__(self, **kwargs):
+        kwargs['min'] = -1
+        super(Cooldown, self).__init__(**kwargs)
+
+    @Integer.validator
+    def not_null(self, value):
+        if value == 0:
+            raise FieldValidationError('Cooldown cannot be null') from None
+
+
+class CommandConfig(Model):
+    enabled = Boolean(required=True, default=True)
+    global_cooldown = Cooldown()
+    personal_cooldown = Cooldown()
+    allowed_roles = List(Snowflake())
+
 
 class Command:
     @classmethod
@@ -55,7 +78,7 @@ class Command:
                '_expression': self.expression}
 
         if guild_id is not None:
-            dct['config'] = self.get_config(guild_id)
+            dct['config'] = self.get_config(guild_id).serialize()
 
         return dct
 
@@ -81,8 +104,7 @@ class Command:
     def default_config(self, guild):
         guild_id = get(guild, 'id', guild)
 
-        default_config = {'id': self.id,
-                          'allowed_roles': [],
+        default_config = {'allowed_roles': [],
                           'enabled': True,
                           'global_cooldown': -1,
                           'personal_cooldown': -1}
@@ -90,7 +112,7 @@ class Command:
         if not self.restrict_default:
             default_config['allowed_roles'] = [guild_id]
 
-        return default_config
+        return CommandConfig(**default_config)
 
     def get_config(self, guild):
         guild_id = get(guild, 'id', guild)
@@ -100,18 +122,27 @@ class Command:
             return self.default_config(guild)
 
         config = json.loads(raw_config)
-        return config
+        return CommandConfig(**config)
 
-    def patch_config(self, guild, new_config):
+    def patch_config(self, guild, partial_new_config):
         guild_id = get(guild, 'id', guild)
 
-        old_config = self.get_config(guild)
-        config = {k: new_config.get(k, old_config[k]) for k in old_config.keys()}
-        raw_config = json.dumps(config)
+        config = self.get_config(guild)
+        for field_name in config.__class__._fields:
+            new_value = partial_new_config.get(field_name)
+            if new_value is not None:
+                setattr(config, field_name, new_value)
 
+        config.validate()
+
+        raw_config = json.dumps(config.serialize())
         self.config_db.set('config.{}'.format(guild_id), raw_config)
 
         return config
+
+    def delete_config(self, guild):
+        guild_id = get(guild, 'id', guild)
+        self.config_db.delete('config.{}'.format(guild_id))
 
     def check_permission(self, ctx):
         member_permissions = ctx.author.get_permissions(ctx.guild)
@@ -123,7 +154,7 @@ class Command:
             return True
 
         config = self.get_config(ctx.guild)
-        allowed_roles = config['allowed_roles']
+        allowed_roles = config.allowed_roles
         for role in ctx.author.roles:
             role_id = get(role, 'id', role)
             if role_id in allowed_roles:
@@ -133,12 +164,12 @@ class Command:
 
     def check_enabled(self, ctx):
         config = self.get_config(ctx.guild)
-        return config['enabled']
+        return config.enabled
 
     def check_cooldown(self, ctx):
         config = self.get_config(ctx.guild)
 
-        global_cooldown = config['global_cooldown']
+        global_cooldown = config.global_cooldown
         if global_cooldown > -1:
             key = 'cooldown.{}'.format(ctx.guild.id)
             cd_check = self.command_db.get(key)
@@ -147,7 +178,7 @@ class Command:
 
             self.command_db.setex(key, 1, global_cooldown)
 
-        personal_cooldown = config['personal_cooldown']
+        personal_cooldown = config.personal_cooldown
         if global_cooldown > -1:
             key = 'cooldown.{}.{}'.format(ctx.guild.id, ctx.author.id)
             cd_check = self.command_db.get(key)
