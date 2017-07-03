@@ -5,12 +5,12 @@ import mee6.types
 import time
 import gevent
 
-from mee6.utils import Logger, get
+from mee6.utils import Logger, get, statsd
 
 
 EVENTS = ['GUILD_JOIN', 'GUILD_LEAVE', 'MEMBER_JOIN', 'MEMBER_LEAVE',
           'MESSAGE_CREATE', 'VOICE_SERVER_UPDATE', 'VOICE_STATE_UPDATE',]
-EVENT_TIMEOUT = 5
+EVENT_TIMEOUT = 5000
 
 class Worker(Logger):
 
@@ -44,8 +44,15 @@ class Worker(Logger):
 
     def handle_event(self, payload):
         timestamp = payload.get('ts')
+        event_type = payload.get('t')
+        now = int(time.time() * 1000)
+
+        # Monitor response time
+        tags = ['event:' + event_type]
+        statsd.timing('workers.event_response_time', now - timestamp, tags=tags)
+
         # Ignore old events
-        if time.time() > timestamp + EVENT_TIMEOUT:
+        if now > timestamp + EVENT_TIMEOUT:
             return
 
         guild = payload['g']
