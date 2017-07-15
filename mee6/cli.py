@@ -1,5 +1,5 @@
 from gevent import monkey
-monkey.patch_all()
+monkey.patch_all(httplib=True)
 
 from mee6.utils import get, init_dd_agent
 from mee6 import worker as mee6_worker
