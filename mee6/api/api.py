@@ -1,6 +1,9 @@
 from mee6.utils import get_plugins, get
 from flask import Flask, request, jsonify, abort
+from functools import wrap
 from modus.exceptions import ValidationError
+from modus import Model
+from modus.fields import Integer, String
 
 app = Flask(__name__)
 
@@ -21,6 +24,53 @@ def get_plugin_command_or_abort(plugin, command_name):
         return abort(404)
 
     return command
+
+def get_token(): return request.headers.get('Authorization')
+
+def get_discord_token(token):
+    return rdb.get('token:{}:discord_token'.format(token))
+
+def reset_token(token):
+    rdb.delete('token:{}:discord_token'.format(token))
+    rdb.delete('token:{}'.format(token))
+
+def get_user_guilds(token):
+    discord_token = get_discord_token(token)
+    discord = make_session(discord_token)
+    r = discord.get(DISCORD_API_BASE_URL + '/users/@me/guilds')
+    if r.status_code != 200:
+        reset_token(token)
+        return abort(401)
+    return r.json()
+
+def require_auth(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        token = get_token()
+        if token is None:
+            return abort(401)
+
+        is_expired = rdb.get('token:{}'.format(token)) is None
+        if is_expired:
+            return abort(401)
+
+        return f(*args, **kwargs)
+    return wrapper
+
+def require_bot_master(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        # Fetch managed guilds
+        user_guilds = get_user_guilds(token)
+        predicate = lambda guild: g['owner'] is True or ((int(g['permissions']) >> 5) & 1)
+        managed_guilds = [guild for guild in user_guilds in predicate(guild)]
+
+        # Check if current guilds in managed guilds
+        gid = kwargs.get('gid')
+        if str(gid) not in map(lambda g: g.id, managed_guilds):
+            return abort(403)
+
+        return f(*args, **kwargs)
 
 @app.route('/')
 def root():
